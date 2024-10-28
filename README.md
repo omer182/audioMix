@@ -13,7 +13,7 @@ This project connects an ESP32 to a UDP server on a backend, allowing for remote
 
 1. **ESP32**: Microcontroller for sending UDP commands.
 2. **Node.js and `node-cmd`**: Server-side processing.
-3. **NirCmd** and **SoundVolumeView**: Tools for controlling audio on Windows.
+3. [**SoundVolumeView**](https://www.nirsoft.net/utils/sound_volume_view.html) Tool for controlling audio on Windows.
 4. **Network Setup**: ESP32 and server must be on the same network to communicate via UDP.
 
 ## Hardware
