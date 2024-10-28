@@ -171,7 +171,7 @@ void checkSwitch() {
     digitalWrite(ledHeadphones, LOW);
     digitalWrite(currentLedPin, HIGH);  // Turn on the selected LED
     sendSwitchMessage();
-    delay(1000);
+    delay(1500);
     sendSlidersData(true); // also send sliders data to adjust after the switch
   } else if (!currentButtonState) {
     switchPressed = false;  // Reset the button state when released
