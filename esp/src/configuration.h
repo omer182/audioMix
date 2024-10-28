@@ -11,3 +11,4 @@
 #define SSID "Mama 2.4"
 #define PASSWORD "maytheforcebewithyou"
 #define HOSTNAME "deejcontroller"
+#define UDP_PORT 16991

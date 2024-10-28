@@ -34,7 +34,7 @@ const int ledHeadphones = 19;
 bool isSpeakers = false;
 bool switchPressed = false; // Tracks if the button is currently pressed
 
-
+// WiFi connection and initialization
 void connectToWifi() {
     destIp = IPAddress();
     destIp.fromString(DEST_IP);
@@ -60,56 +60,49 @@ void connectToWifi() {
     Serial.println(WiFi.localIP());
 }
 
+void sendUDPMessage(const String &message) {
+    Udp.beginPacket(destIp, UDP_PORT);
+    Udp.print(message);
+    Udp.endPacket();
+    Serial.println("Sent UDP message: " + message);
+}
+
+// Send switch message
 void sendMuteMessage(String device, bool isMuted) {
   // Prepare the message
   String message = isMuted ? "mute " : "unmute ";
   message += device;
-
-  // Start UDP and send the message
-  Udp.beginPacket(destIp, 16991);
-  Udp.print(message);
-  Udp.endPacket();
-
-  // Print the message to serial
-  Serial.print("Sent UDP message: ");
-  Serial.println(message);
+  sendUDPMessage(message);
 }
 
+// Set the active audio device
 void setDevice(String device) {
-  String message = "set " + device;
-  Udp.beginPacket(destIp, 16991);
-  Udp.print(message);
-  Udp.endPacket();
-  Serial.println("Sent UDP message: " + message);
+  sendUDPMessage("set " + device);
 }
 
+// Switch audio deviced
 void sendSwitchMessage() {
-  String message = "switch";
-  Udp.beginPacket(destIp, 16991);
-  Udp.print(message);
-  Udp.endPacket();
-  Serial.println("Sent UDP message: switch");
+  sendUDPMessage("switch");
 }
 
+// Send sliders data over UDP
 void sendSlidersData(bool forceData = false) {
   uint readings[NUM_SLIDERS];
   bool dataChanged = false;
 
   unsigned long currentMillis = millis();
 
-// Check if 50 ms has passed
   if (currentMillis - lastSampleTime >= 50) {
     lastSampleTime = currentMillis;
-    dataChanged = false; // Reset dataChanged flag
+    dataChanged = false; 
 
   for (int i = 0; i < NUM_SLIDERS; i++) {
         readings[i] = map(analogRead(pins[i]), 0, 1023, 0, 100);
-        // Calculate the percentage change compared to the previous reading
         float percentChange = abs((float)readings[i] - previousReadings[i]) / 100;
         
         if (percentChange >= CHANGE_THRESHOLD) {
             dataChanged = true;
-            previousReadings[i] = readings[i];  // Update previous reading
+            previousReadings[i] = readings[i]; 
         }
     }
   }
@@ -124,57 +117,55 @@ void sendSlidersData(bool forceData = false) {
             }
         }
 
-        Serial.println(builtString + "\n");
-
-        Udp.beginPacket(destIp, 16991);
-        Udp.write((uint8_t *)builtString.c_str(), builtString.length());
-        Udp.endPacket();
+        sendUDPMessage(builtString);
 
         // Handle mute/unmute based on slider 0
-        if (readings[0] < 3 && !muteButtons[0].isMuted) { // Mute when slider is at 0 and not already muted
+        if (readings[0] < 2 && !muteButtons[0].isMuted) { // Mute when slider is at 0 and not already muted
             sendMuteMessage("master", true);
             muteButtons[0].isMuted = true;
-            digitalWrite(muteButtons[0].ledPin, LOW);  // Turn on the LED
+            digitalWrite(muteButtons[0].ledPin, LOW);
         } else if (readings[0] > 0 && muteButtons[0].isMuted) { // Unmute when slider is above 0 and currently muted
             sendMuteMessage("master", false);
             muteButtons[0].isMuted = false;
-            digitalWrite(muteButtons[0].ledPin, HIGH);  // Turn off the LED
+            digitalWrite(muteButtons[0].ledPin, HIGH);
         }
     }
     delay(10);
 }
 
+// Check mute button states and send message if changed
 void checkMuteButtons() {
   for (int i = 0; i < NUM_BUTTONS; i++) {
     bool currentButtonState = digitalRead(muteButtons[i].buttonPin) == LOW;
 
     if (currentButtonState && !muteButtons[i].isPressed) {
-      muteButtons[i].isPressed = true;  // Mark the button as pressed
-      muteButtons[i].isMuted = !muteButtons[i].isMuted;  // Toggle mute state
-      digitalWrite(muteButtons[i].ledPin, muteButtons[i].isMuted ? LOW : HIGH);  // Update the LED
+      muteButtons[i].isPressed = true;  
+      muteButtons[i].isMuted = !muteButtons[i].isMuted; 
+      digitalWrite(muteButtons[i].ledPin, muteButtons[i].isMuted ? LOW : HIGH);  
 
-      sendMuteMessage(muteButtons[i].name, muteButtons[i].isMuted);  // Send a message for this device
+      sendMuteMessage(muteButtons[i].name, muteButtons[i].isMuted);
     } else if (!currentButtonState) {
-      muteButtons[i].isPressed = false;  // Reset button state when released
+      muteButtons[i].isPressed = false;
     }
   }
 }
 
+// Check and toggle switch state
 void checkSwitch() {
-  bool currentButtonState = digitalRead(switchPin) == LOW;
-  if (currentButtonState && !switchPressed) {
-    switchPressed = true;  // Mark the button as pressed
-    isSpeakers = !isSpeakers;  // Toggle the state
-    const int currentLedPin = isSpeakers ? ledSpeakers : ledHeadphones;  // Switch between LEDs
+  bool currentSwitchState = digitalRead(switchPin) == LOW;
+  if (currentSwitchState && !switchPressed) {
+    switchPressed = true;  
+    isSpeakers = !isSpeakers;  
+    const int currentLedPin = isSpeakers ? ledSpeakers : ledHeadphones; 
 
-    digitalWrite(ledSpeakers, LOW);  // Turn off both LEDs first
+    digitalWrite(ledSpeakers, LOW); 
     digitalWrite(ledHeadphones, LOW);
-    digitalWrite(currentLedPin, HIGH);  // Turn on the selected LED
+    digitalWrite(currentLedPin, HIGH); 
     sendSwitchMessage();
     delay(1500);
-    sendSlidersData(true); // also send sliders data to adjust after the switch
-  } else if (!currentButtonState) {
-    switchPressed = false;  // Reset the button state when released
+    sendSlidersData(true); 
+  } else if (!currentSwitchState) {
+    switchPressed = false;  
   }
 }
 
@@ -198,13 +189,10 @@ void setup() {
   connectToWifi();
   analogReadResolution(10);
 
-  // send initial speaker switch
+  // Initialize device
   setDevice("speakers");
-  digitalWrite(ledSpeakers, HIGH); 
-  digitalWrite(ledHeadphones, LOW); 
+  digitalWrite(ledSpeakers, HIGH);
   delay(1000);
-
-  // send initial sliders data
   sendSlidersData(true);
 }
 
