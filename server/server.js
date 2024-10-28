@@ -5,6 +5,7 @@ const server = dgram.createSocket('udp4');
 const PORT = '16991';
 const HOST = '0.0.0.0';
 
+// your devices found in SoundVolumeView software
 const DEVICES = {
   Headphones: "{0.0.0.00000000}.{a3541ca9-97e2-4203-8572-6eb8980e70a6}",
   Microphone: "{0.0.1.00000000}.{b876065e-da28-4f14-a041-cac6a38e6e6b}",
@@ -12,13 +13,14 @@ const DEVICES = {
   Default: "DefaultRenderDevice"
 };
 
+// location of SoundVolumeView in your PC
 const souneVolumeCmd = "c:\\nircmd\\soundvolumeview\\SoundVolumeView.exe";
-
-const nirCmd = 'c:\\nircmd\\nircmd.exe';
 
 const PROCESSES = [
   'master',
   'Spotify'
+  //'Chrome',
+  //'Warzone',
 ]
 
 function toggleAudioDevices() {
@@ -44,7 +46,6 @@ async function adjustSystemSound(slidersArray) {
   for (let index = 0; index < slidersArray.length; index++) {
     const deviceName = index === 0 ? "DefaultRenderDevice" : `${PROCESSES[index]}.exe`;
     const command = `${souneVolumeCmd} /SetVolume "${deviceName}" ${slidersArray[index]}`;
-    console.log(command);
     cmd.run(command);  
   }
 }
