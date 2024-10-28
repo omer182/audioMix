@@ -201,6 +201,7 @@ void setup() {
   // send initial speaker switch
   setDevice("speakers");
   digitalWrite(ledSpeakers, HIGH); 
+  digitalWrite(ledHeadphones, LOW); 
   delay(1000);
 
   // send initial sliders data
