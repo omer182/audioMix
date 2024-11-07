@@ -17,10 +17,9 @@ struct MuteButton {
 };
 
 // MUTE
-const int NUM_BUTTONS = 2;
+const int NUM_BUTTONS = 1;
 MuteButton muteButtons[NUM_BUTTONS] = {
   {"master", 14, 12, false, false},
-  {"mic", 14, 12, false, false}
 };
 
 // SLIDERS
@@ -138,8 +137,11 @@ void checkMuteButtons() {
       muteButtons[i].isPressed = true;  
       muteButtons[i].isMuted = !muteButtons[i].isMuted; 
       digitalWrite(muteButtons[i].ledPin, muteButtons[i].isMuted ? LOW : HIGH);  
+      
+      String activeOutput = isSpeakers ? "speakers" : "headphones";
+      String deviceName = i == 0 ? activeOutput : muteButtons[i].name;
 
-      sendMuteMessage(muteButtons[i].name, muteButtons[i].isMuted);
+      sendMuteMessage(deviceName, muteButtons[i].isMuted);
     } else if (!currentButtonState) {
       muteButtons[i].isPressed = false;
     }
