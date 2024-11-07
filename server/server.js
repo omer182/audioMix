@@ -25,12 +25,26 @@ const PROCESSES = [
 
 function toggleAudioDevices() {
   const command = `${souneVolumeCmd} /SwitchDefault "${DEVICES.Speakers}" "${DEVICES.Headphones}"`
-  cmd.run(command);
+  cmd.runSync(command);
   console.log('Toggled audio devices');
 }
 
 function toggleMute(deviceName, mute) {
-  let targetDevice = deviceName  === 'master' ? DEVICES.Default : DEVICES.Microphone
+  let targetDevice;
+  
+  switch (deviceName) {
+    case 'headphones':
+      targetDevice = DEVICES.Headphones
+        break;
+    case 'speakers':
+      targetDevice = DEVICES.Speakers
+        break;
+      case 'mic':
+        targetDevice = DEVICES.Microphone
+    // add more cases as needed
+    default:
+      targetDevice = deviceName;
+  }
   let state  = mute ? 'Mute' : 'UnMute'
   let command = `${souneVolumeCmd} /${state} ${targetDevice}`
   cmd.run(command);
@@ -42,13 +56,13 @@ function setAudioDevice(deviceName) {
   cmd.run(command);
 }
 
-async function adjustSystemSound(slidersArray) { 
+function adjustSystemSound(slidersArray) { 
   for (let index = 0; index < slidersArray.length; index++) {
     const deviceName = index === 0 ? "DefaultRenderDevice" : `${PROCESSES[index]}.exe`;
     const command = `${souneVolumeCmd} /SetVolume "${deviceName}" ${slidersArray[index]}`;
     cmd.run(command);  
   }
-}
+} 
 
 server.on('message', (message, rinfo) => {
   console.log(`Server received: ${message} from ${rinfo.address}:${rinfo.port}`);

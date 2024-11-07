@@ -2,18 +2,12 @@
 #include <WiFiUdp.h>
 #include "configuration.h"
 
-#define CHANGE_THRESHOLD 0.01
+#define CHANGE_THRESHOLD 3
+const int MUTE_THRESHOLD = 25;
 
 WiFiUDP Udp;
 IPAddress destIp;
 
-// SLIDERS
-const int NUM_SLIDERS = 2;
-byte pins[NUM_SLIDERS] = {34,35};
-uint previousReadings[NUM_SLIDERS];
-unsigned long lastSampleTime = 0; // For timing 50 ms intervals
-
-// MUTE
 struct MuteButton {
   String name;
   int buttonPin;
@@ -22,17 +16,24 @@ struct MuteButton {
   bool isMuted;
 };
 
+// MUTE
 const int NUM_BUTTONS = 2;
 MuteButton muteButtons[NUM_BUTTONS] = {
-  {"master", 14, 12, false, false}
+  {"master", 14, 12, false, false},
+  {"mic", 14, 12, false, false}
 };
+
+// SLIDERS
+const int NUM_SLIDERS = 2;
+byte pins[NUM_SLIDERS] = {34,35};
+uint previousReadings[NUM_SLIDERS];
 
 // SWITCH
 const int switchPin = 5;
-const int ledSpeakers = 18;
-const int ledHeadphones = 19;
-bool isSpeakers = false;
-bool switchPressed = false; // Tracks if the button is currently pressed
+const int ledSpeakers = 19;
+const int ledHeadphones = 18;
+bool isSpeakers = true;
+bool switchPressed = false; 
 
 // WiFi connection and initialization
 void connectToWifi() {
@@ -60,8 +61,8 @@ void connectToWifi() {
     Serial.println(WiFi.localIP());
 }
 
-void sendUDPMessage(const String &message) {
-    Udp.beginPacket(destIp, UDP_PORT);
+void sendUDPMessage(const String &message, int port = UDP_PORT) {
+    Udp.beginPacket(destIp, port);
     Udp.print(message);
     Udp.endPacket();
     Serial.println("Sent UDP message: " + message);
@@ -85,52 +86,47 @@ void sendSwitchMessage() {
   sendUDPMessage("switch");
 }
 
-// Send sliders data over UDP
+// Send sliders data over UDP to Deej App
 void sendSlidersData(bool forceData = false) {
   uint readings[NUM_SLIDERS];
   bool dataChanged = false;
 
-  unsigned long currentMillis = millis();
-
-  if (currentMillis - lastSampleTime >= 50) {
-    lastSampleTime = currentMillis;
-    dataChanged = false; 
-
   for (int i = 0; i < NUM_SLIDERS; i++) {
-        readings[i] = map(analogRead(pins[i]), 0, 1023, 0, 100);
-        float percentChange = abs((float)readings[i] - previousReadings[i]) / 100;
-        
-        if (percentChange >= CHANGE_THRESHOLD) {
-            dataChanged = true;
-            previousReadings[i] = readings[i]; 
-        }
-    }
+      readings[i] = analogRead(pins[i]);
+      float percentChange = map(abs((float)readings[i] - previousReadings[i]), 0, 1023, 0, 100);
+      if (percentChange >= CHANGE_THRESHOLD) {
+          dataChanged = true;
+          previousReadings[i] = readings[i]; 
+      }
   }
 
+
   if (dataChanged || forceData) {
-        String builtString = String("sliders ");
-        for (int i = 0; i < NUM_SLIDERS; i++) {
-            builtString += String((int)readings[i]);
+    String builtString = String();
+    for (int i = 0; i < NUM_SLIDERS; i++) {
+        builtString += String((int)readings[i]);
 
-            if (i < NUM_SLIDERS - 1) {
-                builtString += String("|");
-            }
-        }
-
-        sendUDPMessage(builtString);
-
-        // Handle mute/unmute based on slider 0
-        if (readings[0] < 2 && !muteButtons[0].isMuted) { // Mute when slider is at 0 and not already muted
-            sendMuteMessage("master", true);
-            muteButtons[0].isMuted = true;
-            digitalWrite(muteButtons[0].ledPin, LOW);
-        } else if (readings[0] > 0 && muteButtons[0].isMuted) { // Unmute when slider is above 0 and currently muted
-            sendMuteMessage("master", false);
-            muteButtons[0].isMuted = false;
-            digitalWrite(muteButtons[0].ledPin, HIGH);
+        if (i < NUM_SLIDERS - 1) {
+            builtString += String("|");
         }
     }
-    delay(10);
+
+    sendUDPMessage(builtString, DEEJ_PORT);
+
+    int activeSliderIndex = isSpeakers ? 0 : 1;
+    String activeOutput = isSpeakers ? "speakers" : "headphones";
+
+    if (readings[activeSliderIndex] < 20 && !muteButtons[0].isMuted) { 
+        sendMuteMessage(activeOutput, true);
+        muteButtons[0].isMuted = true;
+        digitalWrite(muteButtons[0].ledPin, LOW); // Turn LED on
+    } else if (readings[activeSliderIndex] > 0 && muteButtons[0].isMuted) {
+        sendMuteMessage(activeOutput, false);
+        muteButtons[0].isMuted = false;
+        digitalWrite(muteButtons[0].ledPin, HIGH); // Turn LED off
+    }
+  }
+  delay(10);
 }
 
 // Check mute button states and send message if changed
@@ -162,15 +158,13 @@ void checkSwitch() {
     digitalWrite(ledHeadphones, LOW);
     digitalWrite(currentLedPin, HIGH); 
     sendSwitchMessage();
-    delay(1500);
-    sendSlidersData(true); 
+    sendSlidersData(true);
   } else if (!currentSwitchState) {
     switchPressed = false;  
   }
-}
+} 
 
 void setup() {
-  // Initialize Serial Monitor
   Serial.begin(9600);
   
   // set up mute buttons
